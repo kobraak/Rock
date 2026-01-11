@@ -2,16 +2,18 @@ name: AvicaRDP
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # Auto restart every 6 hours
+    - cron: '0 */6 * * *'
 
 jobs:
   build:
     name: Start Building...
     runs-on: windows-latest
-    timeout-minutes: 350  # Increased time limit
+    timeout-minutes: 350
     
     steps:
       - name: Direct Avica Setup
+        id: avica_setup
+        continue-on-error: true  # Prevents workflow from stopping if GoFile fails
         run: |
           Write-Host "🚀 Starting Avica setup directly..." -ForegroundColor Green
           
@@ -39,8 +41,26 @@ jobs:
           # Run setup script
           python setup.py
           
-          Write-Host "✅ Setup completed! Check for GoFile link!" -ForegroundColor Green
+      - name: 🚨 Emergency Backup Upload (If GoFile Failed)
+        run: |
+          Write-Host "Checking for screenshots to upload via Transfer.sh..." -ForegroundColor Cyan
           
+          # Find any PNG or JPG files created by the setup script and upload them
+          $files = Get-ChildItem -Path . -Include *.png, *.jpg -Recurse
+          
+          if ($files) {
+              foreach ($file in $files) {
+                  Write-Host "Uploading $($file.Name)..."
+                  # Upload to transfer.sh
+                  $response = curl.exe --upload-file "$($file.FullName)" "https://transfer.sh/$($file.Name)"
+                  Write-Host " "
+                  Write-Host "✅ LINK: $response" -ForegroundColor Green
+                  Write-Host " "
+              }
+          } else {
+              Write-Host "❌ No screenshots found. Setup might have failed before taking the picture." -ForegroundColor Red
+          }
+
       - name: Setup System User
         run: |
           net user runneradmin TheDisa1a
@@ -53,16 +73,11 @@ jobs:
           ║        AVICA RDP CONNECTION          ║  
           ╚══════════════════════════════════════╝
           
-          📱 Telegram : @TheNetworkZoneOfficial
-          👨‍💻 Credits : @PiroYadav & @TheYadavNetwork
-          
           📋 Instructions:
-          • Go to the GoFile link that will appear below
-          • Get Avica ID and Password from there
-          • Download Avica app and connect
-          • GoFile link changes every time!
+          • If GoFile failed above, look at the 'Emergency Backup Upload' step.
+          • Copy the Transfer.sh link to see your ID/Password.
           
-          ⏳ Waiting for GoFile link...
+          ⏳ Keep alive active...
           " -ForegroundColor Cyan
           
       - name: Start Avica Service
@@ -70,5 +85,5 @@ jobs:
         
       - name: Keep Session Active
         run: |
-          Write-Host "🚀 Avica is starting... Look for CONNECTION ID below!" -ForegroundColor Yellow
+          Write-Host "🚀 Avica is running..." -ForegroundColor Yellow
           cmd /c loop.bat
